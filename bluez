@@ -1,3 +1,89 @@
+when i connected to my phone using ag i got the following interfaces in d-feet
+
+object path - /hfp/org/bluez/hci0/dev_20_32_C6_7B_91_1C
+
+under this i got 
+1. org.ofono.CallVolume
+2. org.ofono.Handsfree
+3. org.ofono.Modem
+4. org.ofono.NetworkRegistration
+5. org.ofono.Siri
+6. org.ofono.VoiceCallManager
+
+so how can i make this useful so user can do tasks through ui 
+    def get_ofono_path_for_device(self, device_address):
+        """
+        Retrieve the ofono object path for a Bluetooth device connected via HFP.
+        You might need to scan the object manager for a path matching your device.
+        """
+        try:
+            objs = self.object_manager.GetManagedObjects()
+            formatted_addr = device_address.replace(":", "_").upper()
+            for path, interfaces in objs.items():
+                # Check if this path is the HFP object for your device
+                if path.endswith(formatted_addr) and "org.ofono.Handsfree" in interfaces:
+                    return path
+            return None
+        except Exception as e:
+            self.log.warning(f"Failed to get ofono path for {device_address}: {e}")
+            return None
+
+    def answer_call(self, device_address):
+        """Answer an incoming call on the device."""
+        path = self.get_ofono_path_for_device(device_address)
+        if not path:
+            self.log.warning(f"No ofono path for {device_address}")
+            return False
+        try:
+            handsfree = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.Handsfree")
+            handsfree.Answer()
+            return True
+        except Exception as e:
+            self.log.error(f"Failed to answer call on {device_address}: {e}")
+            return False
+
+    def hangup_call(self, device_address):
+        """Hang up the current call."""
+        path = self.get_ofono_path_for_device(device_address)
+        if not path:
+            self.log.warning(f"No ofono path for {device_address}")
+            return False
+        try:
+            voice_call_manager = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.VoiceCallManager")
+            voice_call_manager.Hangup()
+            return True
+        except Exception as e:
+            self.log.error(f"Failed to hangup call on {device_address}: {e}")
+            return False
+
+    def dial_number(self, device_address, number):
+        """Dial a phone number."""
+        path = self.get_ofono_path_for_device(device_address)
+        if not path:
+            self.log.warning(f"No ofono path for {device_address}")
+            return False
+        try:
+            voice_call_manager = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.VoiceCallManager")
+            voice_call_manager.Dial(number)
+            return True
+        except Exception as e:
+            self.log.error(f"Failed to dial on {device_address}: {e}")
+            return False
+
+    def set_call_volume(self, device_address, volume):
+        """Set the call volume (0-100)."""
+        path = self.get_ofono_path_for_device(device_address)
+        if not path:
+            self.log.warning(f"No ofono path for {device_address}")
+            return False
+        try:
+            call_volume = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.CallVolume")
+            call_volume.SetVolume(volume)
+            return True
+        except Exception as e:
+            self.log.error(f"Failed to set volume on {device_address}: {e}")
+            return False
+
 def create_hfp_profile_ui(self, device_address):
     """Builds and returns the HFP (Hands-Free Profile) panel for call control and audio gateway testing."""
     bold_font = QFont("Segoe UI", 10, QFont.Weight.Bold)
