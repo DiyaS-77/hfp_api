@@ -1,1 +1,62 @@
+def create_hfp_profile_ui(self, device_address):
+    """Builds and returns the HFP (Hands-Free Profile) panel for call control and audio gateway testing."""
+    bold_font = QFont("Segoe UI", 10, QFont.Weight.Bold)
+    layout = QVBoxLayout()
+    layout.setContentsMargins(15, 15, 15, 15)
+    layout.setSpacing(15)
+
+    hfp_label = QLabel("<b>HFP Functionality</b>")
+    hfp_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+    hfp_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+    layout.addWidget(hfp_label)
+
+    call_control_group = QGroupBox("Call Control")
+    call_control_group.setStyleSheet(styles.bluetooth_profiles_groupbox_style)
+    call_control_layout = QVBoxLayout()
+
+    self.answer_call_button = QPushButton("Answer Call")
+    self.hangup_call_button = QPushButton("Hang Up")
+    self.dial_button = QPushButton("Dial Number")
+    self.phone_number_input = QLineEdit()
+    self.phone_number_input.setPlaceholderText("Enter phone number")
+
+    for button in [self.answer_call_button, self.hangup_call_button, self.dial_button]:
+        button.setStyleSheet(styles.bluetooth_profiles_button_style)
+        button.setFont(bold_font)
+
+    self.dial_button.clicked.connect(lambda: self.bluetooth_device_manager.hfp_dial_call(device_address, self.phone_number_input.text()))
+    self.answer_call_button.clicked.connect(lambda: self.bluetooth_device_manager.hfp_answer_call(device_address))
+    self.hangup_call_button.clicked.connect(lambda: self.bluetooth_device_manager.hfp_hangup_call(device_address))
+
+    call_control_layout.addWidget(self.phone_number_input)
+    call_control_layout.addWidget(self.dial_button)
+    call_control_layout.addWidget(self.answer_call_button)
+    call_control_layout.addWidget(self.hangup_call_button)
+    call_control_group.setLayout(call_control_layout)
+    layout.addWidget(call_control_group)
+
+    widget = QWidget()
+    widget.setLayout(layout)
+    widget.setStyleSheet(styles.device_tab_widget_style_sheet)
+    return widget
+
+def hfp_dial_call(self, device_address, number):
+    bus = dbus.SystemBus()
+    voice_call_manager = bus.get_object("org.ofono", f"/phones/{device_address}")
+    iface = dbus.Interface(voice_call_manager, "org.ofono.VoiceCallManager")
+    iface.Dial(number, {})
+
+
+def setup_hfp_tab(self):
+    """Set up the UI and handlers for the HFP profile tab."""
+    current_device = self.device_address
+    if not current_device:
+        self.log.warning("No device selected for HFP operations.")
+        return
+
+    self.hfp_tab = self.create_hfp_profile_ui(current_device)
+    current_index = self.device_tab_widget.currentIndex()
+    self.device_tab_widget.removeTab(current_index)
+    self.device_tab_widget.insertTab(current_index, self.hfp_tab, "HFP")
+    self.device_tab_widget.setCurrentIndex(current_index)
 
