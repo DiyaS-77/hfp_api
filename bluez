@@ -1,88 +1,107 @@
-when i connected to my phone using ag i got the following interfaces in d-feet
+self.active_call_path = None
+self.voice_call_manager = None
 
-object path - /hfp/org/bluez/hci0/dev_20_32_C6_7B_91_1C
 
-under this i got 
-1. org.ofono.CallVolume
-2. org.ofono.Handsfree
-3. org.ofono.Modem
-4. org.ofono.NetworkRegistration
-5. org.ofono.Siri
-6. org.ofono.VoiceCallManager
+def setup_hfp_manager(self, device_address):
+    """Initialize oFono VoiceCallManager and connect to call signals."""
+    path = self.get_ofono_path_for_device(device_address)
+    if not path:
+        self.log.warning(f"No ofono path for {device_address}")
+        return
 
-so how can i make this useful so user can do tasks through ui 
-    def get_ofono_path_for_device(self, device_address):
-        """
-        Retrieve the ofono object path for a Bluetooth device connected via HFP.
-        You might need to scan the object manager for a path matching your device.
-        """
-        try:
-            objs = self.object_manager.GetManagedObjects()
-            formatted_addr = device_address.replace(":", "_").upper()
-            for path, interfaces in objs.items():
-                # Check if this path is the HFP object for your device
-                if path.endswith(formatted_addr) and "org.ofono.Handsfree" in interfaces:
-                    return path
-            return None
-        except Exception as e:
-            self.log.warning(f"Failed to get ofono path for {device_address}: {e}")
-            return None
+    try:
+        self.voice_call_manager = dbus.Interface(
+            self.bus.get_object("org.ofono", path), "org.ofono.VoiceCallManager"
+        )
 
-    def answer_call(self, device_address):
-        """Answer an incoming call on the device."""
-        path = self.get_ofono_path_for_device(device_address)
-        if not path:
-            self.log.warning(f"No ofono path for {device_address}")
-            return False
-        try:
-            handsfree = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.Handsfree")
-            handsfree.Answer()
-            return True
-        except Exception as e:
-            self.log.error(f"Failed to answer call on {device_address}: {e}")
-            return False
+        # Connect to call events
+        self.voice_call_manager.connect_to_signal("CallAdded", self.on_call_added)
+        self.voice_call_manager.connect_to_signal("CallRemoved", self.on_call_removed)
 
-    def hangup_call(self, device_address):
-        """Hang up the current call."""
-        path = self.get_ofono_path_for_device(device_address)
-        if not path:
-            self.log.warning(f"No ofono path for {device_address}")
-            return False
-        try:
-            voice_call_manager = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.VoiceCallManager")
-            voice_call_manager.Hangup()
-            return True
-        except Exception as e:
-            self.log.error(f"Failed to hangup call on {device_address}: {e}")
-            return False
+        self.log.info(f"VoiceCallManager initialized for {device_address}")
+    except Exception as e:
+        self.log.error(f"Failed to setup VoiceCallManager for {device_address}: {e}")
 
-    def dial_number(self, device_address, number):
-        """Dial a phone number."""
-        path = self.get_ofono_path_for_device(device_address)
-        if not path:
-            self.log.warning(f"No ofono path for {device_address}")
-            return False
-        try:
-            voice_call_manager = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.VoiceCallManager")
-            voice_call_manager.Dial(number)
-            return True
-        except Exception as e:
-            self.log.error(f"Failed to dial on {device_address}: {e}")
-            return False
+self.bluetooth_device_manager.setup_hfp_manager(device_address)
 
-    def set_call_volume(self, device_address, volume):
-        """Set the call volume (0-100)."""
-        path = self.get_ofono_path_for_device(device_address)
-        if not path:
-            self.log.warning(f"No ofono path for {device_address}")
-            return False
-        try:
-            call_volume = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.CallVolume")
-            call_volume.SetVolume(volume)
-            return True
-        except Exception as e:
-            self.log.error(f"Failed to set volume on {device_address}: {e}")
-            return False
+def on_call_added(self, call_path, properties):
+    """Triggered when a new call starts or incoming call detected."""
+    self.active_call_path = call_path
+    number = properties.get("LineIdentification", "Unknown")
+    state = properties.get("State", "unknown")
+    self.log.info(f"New call: {call_path}, Number={number}, State={state}")
+
+    # Optional: Notify the UI
+    if hasattr(self, "ui_callback"):
+        self.ui_callback("call_status", state, number)
+
+def on_call_removed(self, call_path):
+    """Triggered when a call ends."""
+    if self.active_call_path == call_path:
+        self.log.info(f"Call ended: {call_path}")
+        self.active_call_path = None
+
+        if hasattr(self, "ui_callback"):
+            self.ui_callback("call_status", "disconnected", "")
+
+
+def dial_number(self, device_address, number):
+    """Dial a phone number via HFP."""
+    path = self.get_ofono_path_for_device(device_address)
+    if not path:
+        self.log.warning(f"No ofono path for {device_address}")
+        return False
+    try:
+        manager = dbus.Interface(self.bus.get_object("org.ofono", path), "org.ofono.VoiceCallManager")
+        manager.Dial(number, {})
+        return True
+    except Exception as e:
+        self.log.error(f"Failed to dial {number} on {device_address}: {e}")
+        return False
+
+
+def answer_call(self, device_address):
+    """Answer incoming call."""
+    if not self.active_call_path:
+        self.log.warning("No active call to answer.")
+        return
+    try:
+        call_iface = dbus.Interface(self.bus.get_object("org.ofono", self.active_call_path), "org.ofono.VoiceCall")
+        call_iface.Answer()
+        self.log.info("Answered call.")
+    except Exception as e:
+        self.log.error(f"Failed to answer call: {e}")
+
+
+def hangup_active_call(self):
+    """Hang up the current active call."""
+    if not self.active_call_path:
+        self.log.warning("No active call to hang up.")
+        return
+    try:
+        call_iface = dbus.Interface(self.bus.get_object("org.ofono", self.active_call_path), "org.ofono.VoiceCall")
+        call_iface.Hangup()
+        self.log.info(f"Hung up call: {self.active_call_path}")
+    except Exception as e:
+        self.log.error(f"Failed to hang up: {e}")
+self.dial_button.clicked.connect(lambda: self.bluetooth_device_manager.dial_number(device_address, self.phone_number_input.text()))
+self.answer_call_button.clicked.connect(lambda: self.bluetooth_device_manager.answer_call(device_address))
+self.hangup_call_button.clicked.connect(lambda: self.bluetooth_device_manager.hangup_active_call())
+
+def ui_callback(self, event, *args):
+    if event == "call_status":
+        state, number = args
+        self.call_status_label.setText(f"Status: {state}")
+        self.call_number_label.setText(f"Number: {number}")
+
+
+
+
+
+
+
+
+
 
 def create_hfp_profile_ui(self, device_address):
     """Builds and returns the HFP (Hands-Free Profile) panel for call control and audio gateway testing."""
@@ -96,6 +115,22 @@ def create_hfp_profile_ui(self, device_address):
     hfp_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
     layout.addWidget(hfp_label)
 
+    # --- Call status section ---
+    status_group = QGroupBox("Call Status")
+    status_layout = QVBoxLayout()
+
+    self.call_number_label = QLabel("Number: -")
+    self.call_status_label = QLabel("Status: Idle")
+
+    self.call_number_label.setFont(bold_font)
+    self.call_status_label.setFont(bold_font)
+
+    status_layout.addWidget(self.call_number_label)
+    status_layout.addWidget(self.call_status_label)
+    status_group.setLayout(status_layout)
+    layout.addWidget(status_group)
+
+    # --- Call control section ---
     call_control_group = QGroupBox("Call Control")
     call_control_group.setStyleSheet(styles.bluetooth_profiles_groupbox_style)
     call_control_layout = QVBoxLayout()
@@ -110,9 +145,9 @@ def create_hfp_profile_ui(self, device_address):
         button.setStyleSheet(styles.bluetooth_profiles_button_style)
         button.setFont(bold_font)
 
-    self.dial_button.clicked.connect(lambda: self.bluetooth_device_manager.hfp_dial_call(device_address, self.phone_number_input.text()))
-    self.answer_call_button.clicked.connect(lambda: self.bluetooth_device_manager.hfp_answer_call(device_address))
-    self.hangup_call_button.clicked.connect(lambda: self.bluetooth_device_manager.hfp_hangup_call(device_address))
+    self.dial_button.clicked.connect(lambda: self.bluetooth_device_manager.dial_number(device_address, self.phone_number_input.text()))
+    self.answer_call_button.clicked.connect(lambda: self.bluetooth_device_manager.answer_call(device_address))
+    self.hangup_call_button.clicked.connect(lambda: self.bluetooth_device_manager.hangup_active_call())
 
     call_control_layout.addWidget(self.phone_number_input)
     call_control_layout.addWidget(self.dial_button)
@@ -126,23 +161,39 @@ def create_hfp_profile_ui(self, device_address):
     widget.setStyleSheet(styles.device_tab_widget_style_sheet)
     return widget
 
-def hfp_dial_call(self, device_address, number):
-    bus = dbus.SystemBus()
-    voice_call_manager = bus.get_object("org.ofono", f"/phones/{device_address}")
-    iface = dbus.Interface(voice_call_manager, "org.ofono.VoiceCallManager")
-    iface.Dial(number, {})
+def on_call_added(self, call_path, properties):
+    """Triggered when a new call starts or incoming call detected."""
+    self.active_call_path = call_path
+    number = properties.get("LineIdentification", "Unknown")
+    state = properties.get("State", "unknown")
+    self.log.info(f"New call: {call_path}, Number={number}, State={state}")
+
+    if hasattr(self, "ui_callback"):
+        self.ui_callback("update_call_status", state, number)
 
 
-def setup_hfp_tab(self):
-    """Set up the UI and handlers for the HFP profile tab."""
-    current_device = self.device_address
-    if not current_device:
-        self.log.warning("No device selected for HFP operations.")
-        return
+def on_call_removed(self, call_path):
+    """Triggered when a call ends."""
+    if self.active_call_path == call_path:
+        self.log.info(f"Call ended: {call_path}")
+        self.active_call_path = None
 
-    self.hfp_tab = self.create_hfp_profile_ui(current_device)
-    current_index = self.device_tab_widget.currentIndex()
-    self.device_tab_widget.removeTab(current_index)
-    self.device_tab_widget.insertTab(current_index, self.hfp_tab, "HFP")
-    self.device_tab_widget.setCurrentIndex(current_index)
+        if hasattr(self, "ui_callback"):
+            self.ui_callback("update_call_status", "disconnected", "")
+
+
+self.bluetooth_device_manager = BluetoothDeviceManager(ui_callback=self.handle_hfp_ui_update)
+
+
+def handle_hfp_ui_update(self, event, *args):
+    """Callback from BluetoothDeviceManager to update the UI based on call events."""
+    if event == "update_call_status":
+        state, number = args
+
+        # Update the labels in real-time
+        if hasattr(self, "call_status_label"):
+            self.call_status_label.setText(f"Status: {state.capitalize()}")
+        if hasattr(self, "call_number_label"):
+            self.call_number_label.setText(f"Number: {number if number else '-'}")
+
 
