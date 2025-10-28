@@ -1,0 +1,100 @@
+from PyQt6.QtWidgets import QToolButton, QSizePolicy
+
+def make_collapsible_group(title, inner_layout):
+    group = QWidget()
+    layout = QVBoxLayout(group)
+    toggle = QToolButton(text=title, checkable=True, checked=False)
+    toggle.setStyleSheet("QToolButton { font-weight: bold; }")
+    toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    toggle.setArrowType(Qt.ArrowType.RightArrow)
+
+    content = QWidget()
+    content.setLayout(inner_layout)
+    content.setVisible(False)
+
+    def toggle_section():
+        expanded = toggle.isChecked()
+        content.setVisible(expanded)
+        toggle.setArrowType(Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow)
+
+    toggle.toggled.connect(toggle_section)
+
+    layout.addWidget(toggle)
+    layout.addWidget(content)
+    return group
+
+
+
+def create_hfp_profile_ui(self, device_address):
+    layout = QVBoxLayout()
+    layout.setContentsMargins(15, 15, 15, 15)
+
+    # --- Section 1: Basic controls ---
+    basic_layout = QVBoxLayout()
+    self.phone_number_input = QLineEdit()
+    self.phone_number_input.setPlaceholderText("Enter phone number")
+    self.dial_button = QPushButton("Dial")
+    self.answer_call_button = QPushButton("Answer")
+    self.hangup_button = QPushButton("Hang Up")
+    self.redial_button = QPushButton("Dial Last Number")
+
+    for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
+        b.setFixedHeight(35)
+
+    basic_layout.addWidget(self.phone_number_input)
+    for b in [self.dial_button, self.answer_call_button, self.hangup_button, self.redial_button]:
+        basic_layout.addWidget(b)
+
+    basic_group = make_collapsible_group("📞 Basic Call Controls", basic_layout)
+
+    # --- Section 2: Advanced call handling ---
+    adv_layout = QVBoxLayout()
+    for text in ["Swap Calls", "Hold + Answer", "Release + Answer", "Private Chat"]:
+        adv_layout.addWidget(QPushButton(text))
+    adv_group = make_collapsible_group("🔄 Advanced Call Handling", adv_layout)
+
+    # --- Section 3: Audio Control ---
+    audio_layout = QHBoxLayout()
+    self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+    self.volume_slider.setRange(0, 100)
+    audio_layout.addWidget(QLabel("Volume:"))
+    audio_layout.addWidget(self.volume_slider)
+    audio_group = make_collapsible_group("🎚️ Audio Settings", audio_layout)
+
+    # --- Section 4: DTMF ---
+    dtmf_layout = QHBoxLayout()
+    self.dtmf_input = QLineEdit()
+    self.dtmf_input.setPlaceholderText("Enter DTMF tone (0–9, #, *)")
+    self.dtmf_send_btn = QPushButton("Send")
+    dtmf_layout.addWidget(self.dtmf_input)
+    dtmf_layout.addWidget(self.dtmf_send_btn)
+    dtmf_group = make_collapsible_group("🔢 DTMF Controls", dtmf_layout)
+
+    layout.addWidget(basic_group)
+    layout.addWidget(adv_group)
+    layout.addWidget(audio_group)
+    layout.addWidget(dtmf_group)
+
+    widget = QWidget()
+    widget.setLayout(layout)
+    return widget
+
+
+widget.setStyleSheet("""
+QGroupBox {
+    border: 1px solid #a0a0a0;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+QPushButton {
+    background-color: #6ea8fe;
+    color: white;
+    border-radius: 4px;
+}
+QPushButton:hover {
+    background-color: #2e8bff;
+}
+QToolButton {
+    font-size: 13px;
+}
+""")
