@@ -1,0 +1,67 @@
+🎨 1. Visual Layout Improvements
+
+✅ Group alignment
+	•	Center-align the groups vertically in the available area.
+	•	Add subtle padding and consistent spacing (e.g., setContentsMargins(20, 10, 20, 10)).
+
+✅ Use icons
+	•	Add icons to buttons such as:
+	•	📞 Dial
+	•	📲 Answer
+	•	❌ Hang Up
+	•	🔁 Redial
+	•	You can use QPushButton.setIcon(QIcon("media/phone.png")) for that, and keep icons small (16–20px).
+
+✅ Expand/collapse animation
+	•	Instead of just showing/hiding the sections abruptly, you can add a smooth expand/collapse using QPropertyAnimation on the height of each group.
+
+✅ Visual separation
+	•	Add subtle frame borders or colored headers per group, for example:
+
+group.setStyleSheet("""
+    QGroupBox {
+        border: 1px solid #0078D7;
+        border-radius: 6px;
+        margin-top: 10px;
+    }
+    QGroupBox::title {
+        subcontrol-origin: margin;
+        subcontrol-position: top center;
+        padding: 3px 10px;
+        color: #0078D7;
+        font-weight: bold;
+    }
+""")
+
+
+🧠 2. Usability Enhancements
+
+✅ Dynamic State Changes
+	•	Disable “Answer” when no incoming call exists.
+	•	Disable “Hang Up” until a call is active.
+	•	Show the current call state (Idle, Ringing, Active) via a colored label.
+
+✅ Audio & Volume Controls
+	•	For Audio Settings, include:
+	•	Speaker & Mic volume sliders (QSlider).
+	•	A mute/unmute toggle button.
+
+✅ Advanced Call Handling
+	•	Add “Hold”, “Swap”, and “Conference” as optional buttons.
+	•	Make them appear dynamically only when those features are available.
+
+✅ DTMF Controls
+	•	Use a simple dial pad layout (3x4 grid of buttons 1–9, *, 0, #).
+	•	Each sends SendDTMF() over DBus when clicked.
+
+⸻
+
+⚙️ 3. Code Organization
+
+To keep your UI modular:
+	•	Create separate methods:
+	•	create_basic_controls_ui()
+	•	create_audio_settings_ui()
+	•	create_dtmf_controls_ui()
+	•	Then load them into collapsible sections, like you already have, to maintain structure.
+
