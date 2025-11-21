@@ -1,0 +1,20 @@
+✅ Your Prompt (Copy & Paste to ChatGPT)
+
+“I want to improve my GATT Server UI. Please redesign it by adding only these features:
+	1.	Service Details Panel
+	•	Show UUID
+	•	Show characteristic UUID
+	•	Show characteristic properties (Read/Write/Notify) inside a styled box
+	2.	Group Buttons Under a ‘Server Controls’ Section
+	•	Start Server
+	•	Stop Server
+	•	Show Connected Device
+	3.	Server Status Indicator
+	•	Show a colored tag (Running/Stopped)
+	4.	Detailed Connected Device Info Panel
+	•	Device Name
+	•	Address
+	•	Connection State
+	•	Last Activity Timestamp
+
+Use a clean, modern UI layout that matches a professional Bluetooth Test Host application.”
